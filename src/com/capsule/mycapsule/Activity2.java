@@ -3,15 +3,31 @@ package com.capsule.mycapsule;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.apache.http.NameValuePair;
+import org.apache.http.message.BasicNameValuePair;
+
+import com.capsule.mycapsule.Activity1.ErrorDialogFragment;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesClient;
+import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.location.LocationClient;
+import com.google.android.gms.location.LocationListener;
+
+import android.location.Location;
 import android.os.Bundle;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.util.Log;
 import android.view.Menu;
 import android.view.View;
@@ -23,7 +39,9 @@ import ar.com.daidalos.afiledialog.FileChooserActivity;
 import ar.com.daidalos.afiledialog.FileChooserDialog;
 
 
-public class Activity2 extends Activity {
+public class Activity2 extends Activity implements LocationListener,
+GooglePlayServicesClient.ConnectionCallbacks,
+GooglePlayServicesClient.OnConnectionFailedListener{
 	int serverResponseCode = 0;
 	ProgressDialog dialog = null;      
 	/**********  File Path *************/
@@ -34,6 +52,9 @@ public class Activity2 extends Activity {
 	TextView messageText;
 	Button btn;
 	Button uploadButton;
+	//for location service
+	// Stores the current instantiation of the location client in this object
+	private LocationClient mLocationClient;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +63,11 @@ public class Activity2 extends Activity {
 		btn = (Button) this.findViewById(R.id.activity2_button1);
 		uploadButton = (Button)findViewById(R.id.activity2_button2);
 		messageText  = (TextView)findViewById(R.id.activity2_textView1);
+		/*
+		 * Create a new location client, using the enclosing class to handle
+		 * callbacks.
+		 */
+		mLocationClient = new LocationClient(this, this, this);
 		btn.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -110,10 +136,13 @@ public class Activity2 extends Activity {
 	};
 
 	public int uploadFile(String sourceFileUri) {
-
-
+		//location needed, google play must be available
+		if (!checkGooglePlayStatus()) {
+        	System.out.println("google play not available!");
+            return 0;
+        }
+        Location location = mLocationClient.getLastLocation();
 		String fileName = sourceFileUri;
-
 		HttpURLConnection conn = null;
 		DataOutputStream dos = null;  
 		String lineEnd = "\r\n";
@@ -160,14 +189,18 @@ public class Activity2 extends Activity {
 				conn.setRequestProperty("ENCTYPE", "multipart/form-data");
 				conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
 				conn.setRequestProperty("uploaded_file", fileName); 
-
+				List<NameValuePair> params = new ArrayList<NameValuePair>();
+				params.add(new BasicNameValuePair("lon", Double.toString(location.getLongitude())));
+				params.add(new BasicNameValuePair("lat", Double.toString(location.getLatitude())));
+				
+				
 				dos = new DataOutputStream(conn.getOutputStream());
 
 				dos.writeBytes(twoHyphens + boundary + lineEnd); 
 				dos.writeBytes("Content-Disposition: form-data; name=\"uploaded_file\";filename=\"" + fileName + "\"" + lineEnd);
 
 				dos.writeBytes(lineEnd);
-
+				
 				// create a buffer of  maximum size
 				bytesAvailable = fileInputStream.available(); 
 
@@ -249,6 +282,116 @@ public class Activity2 extends Activity {
 			return serverResponseCode; 
 
 		} // End else block 
+	}
+
+	@Override
+	public void onConnectionFailed(ConnectionResult connectionResult) {
+		/*
+		 * Google Play services can resolve some errors it detects. If the error
+		 * has a resolution, try sending an Intent to start a Google Play
+		 * services activity that can resolve error.
+		 */
+		if (connectionResult.hasResolution()) {
+			try {
+
+				// Start an Activity that tries to resolve the error
+				connectionResult.startResolutionForResult(this,
+						LocationUtils.CONNECTION_FAILURE_RESOLUTION_REQUEST);
+
+				/*
+				 * Thrown if Google Play services canceled the original
+				 * PendingIntent
+				 */
+
+			} catch (IntentSender.SendIntentException e) {
+
+				// Log the error
+				e.printStackTrace();
+			}
+		} else {
+
+			// If no resolution is available, display a dialog to the user with
+			// the error.
+			showErrorDialog(connectionResult.getErrorCode());
+		}
+		
+	}
+
+	@Override
+	public void onConnected(Bundle arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onDisconnected() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onLocationChanged(Location arg0) {
+		// TODO Auto-generated method stub
+		
 	} 
+	
+	private void showErrorDialog(int errorCode) {
+
+		// Get the error dialog from Google Play services
+		Dialog errorDialog = GooglePlayServicesUtil.getErrorDialog(errorCode,
+				this, LocationUtils.CONNECTION_FAILURE_RESOLUTION_REQUEST);
+
+		// If Google Play services can provide an error dialog
+		if (errorDialog != null) {
+
+			// Create a new DialogFragment in which to show the error dialog
+			ErrorDialogFragment errorFragment = new ErrorDialogFragment();
+
+			// Set the dialog in the DialogFragment
+			errorFragment.setDialog(errorDialog);
+
+			// Show the error dialog in the DialogFragment
+			// errorFragment.show(getSupportFragmentManager(),
+			// LocationUtils.APPTAG);
+		}
+	}
+	
+	public boolean checkGooglePlayStatus() {
+		// Getting status
+		int status = GooglePlayServicesUtil
+				.isGooglePlayServicesAvailable(getBaseContext());
+
+		// Showing status
+		if (status == ConnectionResult.SUCCESS)
+			return true;
+		else {
+
+			int requestCode = 10;
+			Dialog dialog = GooglePlayServicesUtil.getErrorDialog(status, this,
+					requestCode);
+			dialog.show();
+			return false;
+		}
+	}
+	
+	private String getQuery(List<NameValuePair> params) throws UnsupportedEncodingException
+	{
+	    StringBuilder result = new StringBuilder();
+	    boolean first = true;
+
+	    for (NameValuePair pair : params)
+	    {
+	        if (first)
+	            first = false;
+	        else
+	            result.append("&");
+
+	        result.append(URLEncoder.encode(pair.getName(), "UTF-8"));
+	        result.append("=");
+	        result.append(URLEncoder.encode(pair.getValue(), "UTF-8"));
+	    }
+
+	    return result.toString();
+	}
 
 }
