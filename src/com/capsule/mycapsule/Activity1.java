@@ -403,6 +403,7 @@ public class Activity1 extends Activity implements LocationListener,
 								point_string.length() - 2));
 						// System.out.println("haha"+list_lat.size());
 
+						
 						// System.out.println("haha"+point_string.substring(6,point_string.indexOf(" ")));
 						// System.out.println("haha"+point_string.substring(point_string.indexOf(" "),point_string.length()-1));
 					}

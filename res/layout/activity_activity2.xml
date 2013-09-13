@@ -9,8 +9,25 @@
     tools:context=".Activity2" >
 
     <TextView
+        android:id="@+id/activity2_textView1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/hello_world" />
+
+    <Button
+        android:id="@+id/activity2_button1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        android:text="Select File" />
+
+    <Button
+        android:id="@+id/activity2_button2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@+id/activity2_button1"
+        android:layout_marginLeft="70dp"
+        android:layout_toRightOf="@+id/activity2_button1"
+        android:text="Upload" />
 
 </RelativeLayout>
